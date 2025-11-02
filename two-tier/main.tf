@@ -77,6 +77,66 @@ resource "aws_route_table_association" "rta" {
   route_table_id = aws_route_table.rt_pub.id
 }
 
+variable "sgs" {
+  description = "Security group rules"
+  type = map(object({
+    inbound_rules = list(map(object({
+      cidr_ipv4 = string
+      port = number
+      ip_protocol = string
+    })))
+    outbound_rules = list(map(object({
+      cidr_ipv4 = string
+      ip_protocol = string
+    })))
+  }))
+}
+
+resource "aws_security_group" "sg" {
+  for_each = var.sgs
+  name        = each.key
+  description = "Allow SSH inbound traffic and all outbound traffic"
+  vpc_id      = aws_vpc.vpc.id
+
+  tags = {
+    Name = "${local.project}-${each.key}"
+  }
+}
+
+locals {
+  inbound_rules = flatten([
+    for sg_name, sg in var.sgs : [
+      for rule_obj in sg.inbound_rules : [
+        for rule_name, rule in rule_obj : {
+          sg_name      = sg_name
+          rule_name    = rule_name
+          rule         = rule
+        }
+      ]
+    ]
+  ])
+}
+
+resource "aws_vpc_security_group_ingress_rule" "this" {
+  for_each = {
+    for rule in local.inbound_rules :
+      "${rule.sg_name}-${rule.rule_name}" => rule
+  }
+
+  security_group_id = aws_security_group.sg[each.value.sg_name].id
+  cidr_ipv4         = each.value.rule.cidr_ipv4
+  from_port         = each.value.rule.port
+  ip_protocol       = each.value.rule.ip_protocol
+  to_port           = each.value.rule.port
+}
+
+# resource "aws_vpc_security_group_egress_rule" "allow_all_traffic_ipv4" {
+#   for_each = var.sgs
+#   security_group_id = aws_security_group.sg[each.key].id
+#   cidr_ipv4         = each.value.outbound_rules[*].cidr_ipv4
+#   ip_protocol       = each.value.outbound_rules[*].ip_protocol # semantically equivalent to all ports
+# }
+
 data "aws_ami" "ubuntu" {
   most_recent = true
 
@@ -93,7 +153,7 @@ data "aws_ami" "ubuntu" {
   owners = ["099720109477"] # Canonical
 }
 
-resource "aws_instance" "example" {
+resource "aws_instance" "ec2" {
   for_each = var.public_subs
   ami           = data.aws_ami.ubuntu.id
   instance_type = "t3.micro"
@@ -104,3 +164,4 @@ resource "aws_instance" "example" {
     Name = "${local.project}-ec2"
   }
 }
+
