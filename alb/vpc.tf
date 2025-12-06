@@ -8,6 +8,7 @@ module "vpc" {
   enable_nat_gateway = var.enable_nat_gateway
   single_nat_gateway = var.single_nat_gateway
   manage_default_route_table = var.manage_default_route_table
+  manage_default_security_group = false
 
   tags = merge(
     var.common_tags,
