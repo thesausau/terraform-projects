@@ -1,3 +1,2 @@
-alb.tf
 .terraform*
 terraform.tfstate*

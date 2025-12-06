@@ -19,7 +19,7 @@ resource "aws_key_pair" "ec2" {
 
 ### aws launch template ###
 
-resource "aws_launch_template" "template" {
+resource "aws_launch_template" "lt" {
   name                    = "${var.common_tags["Project"]}-template-${random_string.string.result}"
   image_id                = data.aws_ami.ubuntu.id
   instance_type           = var.instance_type
@@ -74,10 +74,10 @@ resource "aws_autoscaling_group" "asg" {
   force_delete              = true
   vpc_zone_identifier       = module.vpc.private_subnets
   launch_template {
-    id      = aws_launch_template.template.id
+    id      = aws_launch_template.lt.id
     version = "$Latest"
   }
-  #target_group_arns         = [module.alb.target_group_arn]
+  target_group_arns = [aws_lb_target_group.alb_tg.arn]
   tag {
     key                 = "Name"
     value               = "${var.common_tags["Project"]}-${var.asg_name}-${random_string.string.result}"
