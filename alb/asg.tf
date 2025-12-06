@@ -13,14 +13,14 @@ data "aws_ami" "ubuntu" {
 
 resource "aws_key_pair" "ec2" {
   key_name   = "${var.common_tags["Project"]}-ec2-asg-${random_string.string.result}"
-  public_key = file(var.key_path) 
+  public_key = file(var.key_path)
 }
 
 module "asg" {
-  source  = "terraform-aws-modules/autoscaling/aws"
+  source = "terraform-aws-modules/autoscaling/aws"
 
   # Autoscaling group
-  name = "${var.common_tags["Project"]}-${var.asg}-${random_string.string.result}"
+  name = "${var.common_tags["Project"]}-${var.asg_name}-${random_string.string.result}"
 
   min_size                  = var.asg_min_size
   max_size                  = var.asg_max_size
@@ -30,8 +30,8 @@ module "asg" {
   vpc_zone_identifier       = module.vpc.private_subnets
 
   # Launch template
-  launch_template_name        = "${var.common_tags["Project"]}-${var.alt}-${random_string.string.result}"
-  update_default_version      = true
+  launch_template_name   = "${var.common_tags["Project"]}-${var.alt}-${random_string.string.result}"
+  update_default_version = true
 
   image_id          = data.aws_ami.ubuntu.id
   key_name          = aws_key_pair.ec2.key_name
@@ -75,33 +75,29 @@ module "asg" {
       security_groups       = [aws_security_group.allow_from_alb.id, aws_security_group.allow_ssh.id]
     }
   ]
-
-  # placement = {
-  #   availability_zone = "us-west-1b"
-  # }
-
+  user_data = filebase64("${path.module}/user-data/user-data.sh")
   tag_specifications = [
     {
       resource_type = "instance"
-      tags          = merge(var.common_tags, {
+      tags = merge(var.common_tags, {
         Name = "${var.common_tags["Project"]}-${var.ec2_name}-${random_string.string.result}"
       })
     },
     {
       resource_type = "volume"
-      tags          = merge(var.common_tags, {
+      tags = merge(var.common_tags, {
         Name = "${var.common_tags["Project"]}-${var.volume_name}-volume-${random_string.string.result}"
       })
     },
     {
       resource_type = "spot-instances-request"
-      tags          = merge(var.common_tags, {
+      tags = merge(var.common_tags, {
         Name = "${var.common_tags["Project"]}-${var.spot_name}-${random_string.string.result}"
       })
     }
   ]
 
   tags = merge(var.common_tags, {
-    Name = "${var.common_tags["Project"]}-${var.asg}-${random_string.string.result}"
+    Name = "${var.common_tags["Project"]}-${var.asg_name}-${random_string.string.result}"
   })
 }
