@@ -11,15 +11,59 @@ data "aws_ami" "ubuntu" {
   owners = ["099720109477"] # Canonical
 }
 
+### SSH key pair ###
 resource "aws_key_pair" "ec2" {
   key_name   = "${var.common_tags["Project"]}-ec2-asg-${random_string.string.result}"
   public_key = file(var.key_path)
 }
 
-module "asg" {
-  source = "terraform-aws-modules/autoscaling/aws"
+### aws launch template ###
 
-  # Autoscaling group
+resource "aws_launch_template" "template" {
+  name                    = "${var.common_tags["Project"]}-template-${random_string.string.result}"
+  image_id                = data.aws_ami.ubuntu.id
+  instance_type           = var.instance_type
+  disable_api_termination = false
+  key_name                = aws_key_pair.ec2.key_name
+  ebs_optimized           = true
+
+  instance_market_options {
+    market_type = "spot"
+    spot_options {
+      max_price = "0.01"
+    }
+  }
+  block_device_mappings {
+    device_name = var.ebs_device_name
+    ebs {
+      delete_on_termination = true
+      encrypted             = true
+      volume_size           = var.ebs_volume_size
+      volume_type           = var.ebs_volume_type
+    }
+  }
+  cpu_options {
+    core_count       = var.cpu_core
+    threads_per_core = var.cpu_threads
+  }
+  monitoring {
+    enabled = true
+  }
+  network_interfaces {
+    associate_public_ip_address = true
+    security_groups             = [aws_security_group.allow_from_alb.id, aws_security_group.allow_ssh.id]
+  }
+  tag_specifications {
+    resource_type = "instance"
+    tags = merge(var.common_tags, {
+      Name = "${var.common_tags["Project"]}-template-${random_string.string.result}"
+    })
+  }
+  user_data = filebase64("${path.module}/user-data/user-data.sh")
+}
+
+### Autoscaling group ###
+resource "aws_autoscaling_group" "asg" {
   name = "${var.common_tags["Project"]}-${var.asg_name}-${random_string.string.result}"
 
   min_size                  = var.asg_min_size
@@ -27,77 +71,16 @@ module "asg" {
   desired_capacity          = var.asg_desired_capacity
   wait_for_capacity_timeout = 0
   health_check_type         = "EC2"
+  force_delete              = true
   vpc_zone_identifier       = module.vpc.private_subnets
-
-  # Launch template
-  launch_template_name   = "${var.common_tags["Project"]}-${var.alt}-${random_string.string.result}"
-  update_default_version = true
-
-  image_id          = data.aws_ami.ubuntu.id
-  key_name          = aws_key_pair.ec2.key_name
-  instance_type     = var.instance_type
-  ebs_optimized     = true
-  enable_monitoring = true
-
-
-  block_device_mappings = [
-    {
-      # Root volume
-      device_name = var.ebs_device_name
-      no_device   = 0
-      ebs = {
-        delete_on_termination = true
-        encrypted             = true
-        volume_size           = var.ebs_volume_size
-        volume_type           = var.ebs_volume_type
-      }
-    }
-  ]
-
-  capacity_reservation_specification = {
-    capacity_reservation_preference = "open"
+  launch_template {
+    id      = aws_launch_template.template.id
+    version = "$Latest"
   }
-
-  cpu_options = {
-    core_count       = var.cpu_core
-    threads_per_core = var.cpu_threads
+  #target_group_arns         = [module.alb.target_group_arn]
+  tag {
+    key                 = "Name"
+    value               = "${var.common_tags["Project"]}-${var.asg_name}-${random_string.string.result}"
+    propagate_at_launch = true
   }
-
-  instance_market_options = {
-    market_type = "spot"
-  }
-
-  network_interfaces = [
-    {
-      delete_on_termination = true
-      description           = "eth0"
-      device_index          = 0
-      security_groups       = [aws_security_group.allow_from_alb.id, aws_security_group.allow_ssh.id]
-    }
-  ]
-  user_data = filebase64("${path.module}/user-data/user-data.sh")
-  tag_specifications = [
-    {
-      resource_type = "instance"
-      tags = merge(var.common_tags, {
-        Name = "${var.common_tags["Project"]}-${var.ec2_name}-${random_string.string.result}"
-      })
-    },
-    {
-      resource_type = "volume"
-      tags = merge(var.common_tags, {
-        Name = "${var.common_tags["Project"]}-${var.volume_name}-volume-${random_string.string.result}"
-      })
-    },
-    {
-      resource_type = "spot-instances-request"
-      tags = merge(var.common_tags, {
-        Name = "${var.common_tags["Project"]}-${var.spot_name}-${random_string.string.result}"
-      })
-    }
-  ]
-
-  tags = merge(var.common_tags, {
-    Name = "${var.common_tags["Project"]}-${var.asg_name}-${random_string.string.result}"
-  })
 }
