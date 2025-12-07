@@ -50,8 +50,8 @@ resource "aws_launch_template" "lt" {
     enabled = true
   }
   network_interfaces {
-    associate_public_ip_address = true
-    security_groups             = [aws_security_group.allow_from_alb.id, aws_security_group.allow_ssh.id]
+    #associate_public_ip_address = true
+    security_groups = [aws_security_group.allow_from_alb.id, aws_security_group.allow_ssh.id]
   }
   tag_specifications {
     resource_type = "instance"
