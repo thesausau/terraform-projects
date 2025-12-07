@@ -117,6 +117,18 @@ variable "instance_type" {
   default     = "t3.micro"
 }
 
+variable "market_type" {
+  description = "EC2 instance market type"
+  type        = string
+  default     = "spot"
+}
+
+variable "market_type_price" {
+  description = "EC2 instance market type price"
+  type        = string
+  default     = "0.01"
+}
+
 variable "ebs_device_name" {
   description = "EBS device name"
   type        = string
@@ -165,4 +177,40 @@ variable "alb_name" {
   description = "Application Load Balancer name"
   type        = string
   default     = "alb"
+}
+
+variable "lb_type" {
+  description = "Load balancer type"
+  type        = string
+  default     = "application"
+}
+
+variable "enable_deletion_protection" {
+  description = "Enable deletion protection"
+  type        = bool
+  default     = false
+}
+
+variable "tg_port" {
+  description = "Target group port"
+  type        = number
+  default     = 80
+}
+
+variable "tg_protocol" {
+  description = "Target group protocol"
+  type        = string
+  default     = "HTTP"
+}
+
+variable "lb_port" {
+  description = "Load balancer port"
+  type        = number
+  default     = 80
+}
+
+variable "lb_protocol" {
+  description = "Load balancer protocol"
+  type        = string
+  default     = "HTTP"
 }

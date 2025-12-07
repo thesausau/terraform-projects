@@ -28,9 +28,9 @@ resource "aws_launch_template" "lt" {
   ebs_optimized           = true
 
   instance_market_options {
-    market_type = "spot"
+    market_type = var.market_type
     spot_options {
-      max_price = "0.01"
+      max_price = var.market_type_price
     }
   }
   block_device_mappings {

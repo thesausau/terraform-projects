@@ -2,7 +2,7 @@
 resource "aws_lb" "alb" {
   name               = "${var.common_tags["Project"]}-lb-${random_string.string.result}"
   internal           = false
-  load_balancer_type = "application"
+  load_balancer_type = var.lb_type
   security_groups    = [aws_security_group.allow_http.id]
   subnets            = module.vpc.public_subnets
 
@@ -14,8 +14,8 @@ resource "aws_lb" "alb" {
 ### ALB Target Group ###
 resource "aws_lb_target_group" "alb_tg" {
   name     = "${var.common_tags["Project"]}-tg-${random_string.string.result}"
-  port     = 80
-  protocol = "HTTP"
+  port     = var.tg_port
+  protocol = var.tg_protocol
   vpc_id   = module.vpc.vpc_id
   tags     = var.common_tags
 }
@@ -23,8 +23,8 @@ resource "aws_lb_target_group" "alb_tg" {
 ### ALB Listener ###
 resource "aws_lb_listener" "alb_listener" {
   load_balancer_arn = aws_lb.alb.arn
-  port              = "80"
-  protocol          = "HTTP"
+  port              = var.lb_port
+  protocol          = var.lb_protocol
 
   default_action {
     type             = "forward"
